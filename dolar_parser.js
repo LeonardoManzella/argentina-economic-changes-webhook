@@ -1,30 +1,82 @@
 
+//NodeJS Included by default
 var Xray = require('x-ray');
 var xray_ready = Xray();
 var request = require('request');
 var cheerio = require("cheerio");
+var value_change = "0,13";
+var date_change = 0;   //Sunday is 0, Monday is 1, and so on
 
+function extract_number(text){
+    return text.replace("-","").replace("%",""); 
+}
+
+function hasMinus(text){
+    return (text.indexOf("-")>-1)
+}
+
+function hasChanges(data){
+  var actual_date = (new Date().getDay());
+  
+  //If exists a big difference or today is the change date
+  if( (extract_number(data[0].difference)>=value_change) || (extract_number(data[1].difference)>=value_change) || actual_date==date_change ){
+    return true
+  }
+  
+  return false
+}
+
+function isUp(difference){
+  return (extract_number(difference)>=value_change && !hasMinus(difference) )
+  
+}
+
+function isDown(difference){
+  return (extract_number(difference)>=value_change && hasMinus(difference) )
+  
+}
+
+function make_message(data){
+  if( isUp(data[0].difference) ){
+    return "!! Dolar Oficial Subiendo " + data[0].difference + " esta " + data[0].buy_price
+  }
+  if( isDown(data[0].difference) ){
+    return "!! Dolar Oficial Bajando " + data[0].difference + " esta " + data[0].buy_price
+  }
+  if( isUp(data[1].difference) ){
+    return "!! Dolar Informal Subiendo " + data[1].difference + " esta " + data[0].buy_price
+  }
+  if( isDown(data[1].difference) ){
+    return "!! Dolar Informal Bajando " + data[1].difference + " esta " + data[0].buy_price
+  }
+  
+  return "Dolar Comp Informal " + data[1].buy_price
+}
 
 function sendToMaker(makerKey,eventName,data){
   var url_string = 'https://maker.ifttt.com/trigger/' + eventName + '/with/key/' + makerKey;
   console.log("URL " + url_string);
-  
-  var html = '<table style="width:100%; background-color:powderblue; font-size: 180%"> <tr style="width:100%; background-color:powderblue;"> <td><center><b><big>PRECIO DOLAR</big></b</center></td> </tr> </table> <table style="width:100%; background-color:powderblue; font-size: 140%"> <tr style="width:50%"> <td><center><b><big>' + data[0].title + '</big></b></center></td> <td><center><b><big>' + data[1].title + '</big></b></center></td> </tr> <tr style="width:50%"> <td><center><b><big>' + data[0].difference + '</big></b></center></td> <td><center><b><big>' + data[1].difference + '</big></b></center></td> </tr><tr style="width:50%"> <td><center><b><big>' + data[0].buy_price + '</big></b></center></td> <td><center><b><big>' + data[1].buy_price + '</big></b></center></td> </tr> </table>'
-  
-  
+  if( hasChanges(data) ){
+  //if( true ){
+  var html = '<table style="width:100%; background-color:powderblue; font-size: 180%"> <tr style="width:100%; background-color:powderblue;"> <td><center><b><big>PRECIO DOLAR</big></b</center></td> </tr> </table> <table style="width:100%; background-color:powderblue; font-size: 140%"> <tr style="width:50%"> <td><center><b><big>' + data[0].title + '</big></b></center></td> <td><center><b><big>' + data[1].title + '</big></b></center></td> </tr> <tr style="width:50%"> <td><center><b><big>' + data[0].difference + '</big></b></center></td> <td><center><b><big>' + data[1].difference + '</big></b></center></td> </tr><tr style="width:50%"> <td><center><b><big>' + data[0].buy_price + '</big></b></center></td> <td><center><b><big>' + data[1].buy_price + '</big></b></center></td> </tr> </table>';
+  var message = make_message(data);
+  var d = new Date();
+  var actual_date = d.getDate().toString() + "/" + (d.getMonth()+1).toString();
+  console.log("actual date " + actual_date);
   
   request.post({
       url: url_string,
       form:    { 
     'value1' : html,
-    'value2' : "",
-    'value3' : ""}
+    'value2' : message,
+    'value3' : actual_date}
     }, function(error, response, body) {
       console.log('Body response was ', body);
       console.log('Error was ', error);
     });
     
   console.log("Send");
+  }
 }
 
 module.exports = 
@@ -58,7 +110,9 @@ module.exports =
        console.log("Real Data " + JSON.stringify( realData ))
       
       console.log("Sending event to Maker...")
-      sendToMaker("BSBTCmAfGhaWR30dBE3oP","dolar_changed",realData);
+      var leo_token = "BSBTCmAfGhaWR30dBE3oP";
+      var event_name = "dolar_changed";
+      sendToMaker(leo_token,event_name,realData);
       console.log("Event send!")
       res.write( JSON.stringify( realData ));
     }
