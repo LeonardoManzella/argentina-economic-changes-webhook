@@ -1,11 +1,11 @@
 
-//NodeJS Included by default
 var Xray = require('x-ray');
 var xray_ready = Xray();
 var request = require('request');
 var cheerio = require("cheerio");
 var value_change = "0,13";
 var date_change = 0;   //Sunday is 0, Monday is 1, and so on
+var date_limit = 15;
 
 function extract_number(text){
     return text.replace("-","").replace("%",""); 
@@ -16,14 +16,21 @@ function hasMinus(text){
 }
 
 function hasChanges(data){
-  var actual_date = (new Date().getDay());
+  var new_date = new Date();
+  var actual_date = new_date.getDay();
+  
+  //Only let pass if Month Day is between 0 and date_limit
+  if( new_date.getUTCDate() > date_limit ){
+    return false;
+  }
+  
   
   //If exists a big difference or today is the change date
   if( (extract_number(data[0].difference)>=value_change) || (extract_number(data[1].difference)>=value_change) || actual_date==date_change ){
-    return true
+    return true;
   }
   
-  return false
+  return false;
 }
 
 function isUp(difference){
@@ -90,7 +97,7 @@ module.exports =
       '.container-fluid div section div div', [{
         title: 'div div h2 a b',
         difference: 'div div div .variacion big',
-        buy_price: 'div div div .ultimo big'
+        buy_price: 'div div div .cierreAnterior big'
         }]
       )
     })(function(err, data) {
